@@ -79,15 +79,11 @@ class MidiNet(object):
         self.y= tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
 
 
-        self.prev_bar = tf.placeholder(tf.float32, [self.batch_size] + [self.output_w, self.output_h, self.c_dim],
-                                    name='prev_bar')
+        self.prev_bar = tf.placeholder(tf.float32, [self.batch_size] + [self.output_w, self.output_h, self.c_dim], name='prev_bar')
 
-        self.images = tf.placeholder(tf.float32, [self.batch_size] + [self.output_w, self.output_h, self.c_dim],
-                                    name='real_images')
-        self.sample_images= tf.placeholder(tf.float32, [self.sample_size] + [self.output_w, self.output_h, self.c_dim],
-                                        name='sample_images')
-        self.z = tf.placeholder(tf.float32, [None, self.z_dim],
-                                name='z')
+        self.images = tf.placeholder(tf.float32, [self.batch_size] + [self.output_w, self.output_h, self.c_dim], name='real_images')
+        self.sample_images= tf.placeholder(tf.float32, [self.sample_size] + [self.output_w, self.output_h, self.c_dim], name='sample_images')
+        self.z = tf.placeholder(tf.float32, [None, self.z_dim], name='z')
 
         self.z_sum = tf.summary.histogram("z", self.z)
 
@@ -103,19 +99,19 @@ class MidiNet(object):
         self.d__sum = tf.summary.histogram("d_", self.D_)
         self.G_sum = tf.summary.image("G", self.G)
 
-        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_logits, 0.9*tf.ones_like(self.D)))
-        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
-        self.g_loss0 = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
+        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits = self.D_logits, labels=0.9*tf.ones_like(self.D)))
+        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits = self.D_logits_, labels=tf.zeros_like(self.D_)))
+        self.g_loss0 = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.ones_like(self.D_)))
 
 
         #Feature Matching
         self.features_from_g = tf.reduce_mean(self.fm_, reduction_indices=(0))
         self.features_from_i = tf.reduce_mean(self.fm, reduction_indices=(0))
-        self.fm_g_loss1 =tf.mul(tf.nn.l2_loss(self.features_from_g - self.features_from_i), 0.1)
+        self.fm_g_loss1 =tf.multiply(tf.nn.l2_loss(self.features_from_g - self.features_from_i), 0.1)
 
         self.mean_image_from_g = tf.reduce_mean(self.G, reduction_indices=(0))
         self.mean_image_from_i = tf.reduce_mean(self.images, reduction_indices=(0))
-        self.fm_g_loss2 = tf.mul(tf.nn.l2_loss(self.mean_image_from_g - self.mean_image_from_i), 0.01)
+        self.fm_g_loss2 = tf.multiply(tf.nn.l2_loss(self.mean_image_from_g - self.mean_image_from_i), 0.01)
 
 
         self.d_loss_real_sum = tf.summary.scalar("d_loss_real", self.d_loss_real)
@@ -126,9 +122,6 @@ class MidiNet(object):
 
         self.g_loss_sum = tf.summary.scalar("g_loss", self.g_loss)
         self.d_loss_sum = tf.summary.scalar("d_loss", self.d_loss)
-
-
-
 
         t_vars = tf.trainable_variables()
 
@@ -149,7 +142,7 @@ class MidiNet(object):
 
             data_X = np.transpose(data_X,(0,2,3,1))
             prev_X = np.transpose(prev_X,(0,2,3,1))
-            print prev_X.shape
+            print(prev_X.shape)
         d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                           .minimize(self.d_loss, var_list=self.d_vars)
         g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
@@ -164,9 +157,7 @@ class MidiNet(object):
         sample_z = np.random.normal(0, 1, size=(self.sample_size , self.z_dim))
         sample_files = data_X[0:self.sample_size]
 
-        save_images(data_X[np.arange(len(data_X))[:5]]*1, [1, 5],
-        './{}/Train.png'.format(config.sample_dir))
-
+        save_images(data_X[np.arange(len(data_X))[:5]]*1, [1, 5], './{}/Train.png'.format(config.sample_dir))
 
         sample_images = data_X[0:self.sample_size]
         counter = 0
@@ -180,10 +171,7 @@ class MidiNet(object):
 
         sample_labels = sloppy_sample_labels()
         for epoch in xrange(config.epoch):
-
             batch_idxs = len(data_X) // config.batch_size
-
-
 
             for idx in xrange(0, batch_idxs):
 
@@ -198,7 +186,6 @@ class MidiNet(object):
                 '''
                 batch_z = np.random.normal(0, 1, [config.batch_size, self.z_dim]) \
                             .astype(np.float32)
-
 
                 # Update D network
                 _, summary_str = self.sess.run([d_optim, self.d_sum],
@@ -220,9 +207,6 @@ class MidiNet(object):
                 errD_real = self.d_loss_real.eval({self.images: batch_images, self.y:batch_labels })
                 errG = self.g_loss.eval({self.images: batch_images, self.z: batch_z, self.y:batch_labels, self.prev_bar:prev_batch_images })
 
-
-
-
                 counter += 1
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
                     % (epoch, idx, batch_idxs,
@@ -235,8 +219,7 @@ class MidiNet(object):
                         feed_dict={self.z: sample_z, self.images: sample_images, self.y:sample_labels, self.prev_bar:prev_batch_images }
                     )
                     #samples = (samples+1.)/2.
-                    save_images(samples[:5,:], [1, 5],
-                                './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
+                    save_images(samples[:5,:], [1, 5], './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
                     print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
 
                     np.save('./{}/train_{:02d}_{:04d}'.format(config.gen_dir,  epoch, idx), samples)
@@ -244,8 +227,7 @@ class MidiNet(object):
                 if np.mod(counter, len(data_X)/config.batch_size) == 0:
                     self.save(config.checkpoint_dir, counter)
             print("Epoch: [%2d] time: %4.4f, d_loss: %.8f" \
-            % (epoch,
-                time.time() - start_time, (errD_fake+errD_real)/batch_idxs))
+            % (epoch, time.time() - start_time, (errD_fake+errD_real)/batch_idxs))
 
     def discriminator(self, x, y=None, reuse=False):
         df_dim = 64
@@ -272,10 +254,10 @@ class MidiNet(object):
 
             h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim + self.y_dim,k_h=4, k_w=1, name='d_h1_conv')))
             h1 = tf.reshape(h1, [self.batch_size, -1])
-            h1 = tf.concat(1, [h1, y])
+            h1 = tf.concat([h1, y], 1)
 
             h2 = lrelu(self.d_bn2(linear(h1, self.dfc_dim, 'd_h2_lin')))
-            h2 = tf.concat(1, [h2, y])
+            h2 = tf.concat([h2, y], 1)
 
             h3 = linear(h2, 1, 'd_h3_lin')
 
@@ -290,10 +272,10 @@ class MidiNet(object):
 
 
         yb = tf.reshape(y, [self.batch_size, 1, 1, self.y_dim])
-        z = tf.concat(1, [z, y])
+        z = tf.concat([z, y], 1)
 
         h0 = tf.nn.relu(self.g_bn0(linear(z, 1024, 'g_h0_lin')))
-        h0 = tf.concat(1, [h0, y])
+        h0 = tf.concat([h0, y], 1)
 
         h1 = tf.nn.relu(self.g_bn1(linear(h0, self.gf_dim*2*2*1, 'g_h1_lin')))
 
@@ -322,12 +304,11 @@ class MidiNet(object):
         h2_prev = lrelu(self.g_prev_bn2(conv2d(h1_prev, 16, k_h=2, k_w=1, name='g_h2_prev_conv')))
         h3_prev = lrelu(self.g_prev_bn3(conv2d(h2_prev, 16, k_h=2, k_w=1, name='g_h3_prev_conv')))
 
-
         yb = tf.reshape(y, [self.batch_size, 1, 1, self.y_dim])
-        z = tf.concat(1, [z, y])
+        z = tf.concat([z, y], 1)
 
         h0 = tf.nn.relu(self.g_bn0(linear(z, 1024, 'g_h0_lin')))
-        h0 = tf.concat(1, [h0, y])
+        h0 = tf.concat([h0, y], 1)
 
         h1 = tf.nn.relu(self.g_bn1(linear(h0, self.gf_dim*2*2*1, 'g_h1_lin')))
 
@@ -373,4 +354,4 @@ class MidiNet(object):
             return True
         else:
             return False
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
