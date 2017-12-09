@@ -27,7 +27,7 @@ flags.DEFINE_integer("c_dim", 1, "Number of Midi track. [1]")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
 flags.DEFINE_string("dataset", "MidiNet_v1", "The name of dataset ")
-flags.DEFINE_boolean("is_train", False, "True for training, False for testing [False]")
+flags.DEFINE_boolean("is_train", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("is_crop", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("generation_test", False, "True for generation_test, False for nothing [False]")
 flags.DEFINE_string("gen_dir", "gen", "Directory name to save the generate samples [samples]")
@@ -58,7 +58,7 @@ def main(_):
             model.load(FLAGS.checkpoint_dir)
 
 
-
 # Run if called directly
 if __name__ == '__main__':
+    print(" TF Run from main ")
     tf.app.run()

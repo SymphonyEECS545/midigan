@@ -27,6 +27,7 @@ class MidiNet(object):
                  gfc_dim=1024, dfc_dim=1024, c_dim=1, dataset_name='default',
                  checkpoint_dir=None, sample_dir=None, gen_dir= None):
         # Setting the values internally as per initialization
+        print("MidiNet Init Entered ")
         self.sess = sess
         self.is_crop = is_crop
         self.is_grayscale = (c_dim == 1)
@@ -76,8 +77,8 @@ class MidiNet(object):
 
     def build_model(self):
 
+        print("Starting build of the model ")
         self.y= tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
-
 
         self.prev_bar = tf.placeholder(tf.float32, [self.batch_size] + [self.output_w, self.output_h, self.c_dim], name='prev_bar')
 
@@ -86,7 +87,6 @@ class MidiNet(object):
         self.z = tf.placeholder(tf.float32, [None, self.z_dim], name='z')
 
         self.z_sum = tf.summary.histogram("z", self.z)
-
 
         self.G = self.generator(self.z, self.y, self.prev_bar)
         self.D, self.D_logits, self.fm = self.discriminator(self.images, self.y, reuse=False)
@@ -131,18 +131,24 @@ class MidiNet(object):
         self.saver = tf.train.Saver()
 
     def train(self, config):
-
+        print("Training Model ")
         if config.dataset == 'MidiNet_v1':
             # change the file path to your dataset
-            data_X = np.load('/home/richardyang/NAS/RichardYang/MidiNet/Final/data/augmentation/octave2_x.npy')
-            prev_X = np.load('/home/richardyang/NAS/RichardYang/MidiNet/Final/data/augmentation/octave2_prev_x.npy')
-            data_y = np.load('/home/richardyang/NAS/RichardYang/MidiNet/Final/data/augmentation/new_shifted_y.npy')
+#            data_X = np.load('../onset_rolls_npz_FILES/0_csc_data.npy')
+#            prev_X = np.load('../onset_rolls_npz_FILES/1_csc_data.npy')
+#            data_y = np.load('../onset_rolls_npz_FILES/2_csc_data.npy')
+
+            data_X = np.ones((72,1,128,16));
+            prev_X = np.ones((72,1,128,16));
+            data_y = np.ones((72,13));
 
             data_X, prev_X, data_y = shuffle(data_X,prev_X,data_y, random_state=0)
 
             data_X = np.transpose(data_X,(0,2,3,1))
             prev_X = np.transpose(prev_X,(0,2,3,1))
             print(prev_X.shape)
+        else:
+            print("Config Dataset is not MidiNet_v1 ");
         d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                           .minimize(self.d_loss, var_list=self.d_vars)
         g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
@@ -184,23 +190,19 @@ class MidiNet(object):
                 "MidiNet: A Convolutional Generative Adversarial Network for Symbolic-domain Music Generation"
                 However, the result are similar by using (0,1)
                 '''
-                batch_z = np.random.normal(0, 1, [config.batch_size, self.z_dim]) \
-                            .astype(np.float32)
+                batch_z = np.random.normal(0, 1, [config.batch_size, self.z_dim]).astype(np.float32)
 
                 # Update D network
-                _, summary_str = self.sess.run([d_optim, self.d_sum],
-                    feed_dict={ self.images: batch_images, self.z: batch_z ,self.y:batch_labels, self.prev_bar:prev_batch_images })
+                _, summary_str = self.sess.run([d_optim, self.d_sum], feed_dict={ self.images: batch_images, self.z: batch_z ,self.y:batch_labels, self.prev_bar:prev_batch_images })
                 self.writer.add_summary(summary_str, counter)
 
                 # Update G network
-                _, summary_str = self.sess.run([g_optim, self.g_sum],
-                        feed_dict={ self.images: batch_images, self.z: batch_z ,self.y:batch_labels, self.prev_bar:prev_batch_images })
+                _, summary_str = self.sess.run([g_optim, self.g_sum], feed_dict={ self.images: batch_images, self.z: batch_z ,self.y:batch_labels, self.prev_bar:prev_batch_images })
                 self.writer.add_summary(summary_str, counter)
 
                 # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
                 # We've tried to run more d_optim and g_optim, while getting a better result by running g_optim twice in this MidiNet version.
-                _, summary_str = self.sess.run([g_optim, self.g_sum],
-                        feed_dict={ self.images: batch_images, self.z: batch_z ,self.y:batch_labels, self.prev_bar:prev_batch_images })
+                _, summary_str = self.sess.run([g_optim, self.g_sum],feed_dict={ self.images: batch_images, self.z: batch_z ,self.y:batch_labels, self.prev_bar:prev_batch_images })
                 self.writer.add_summary(summary_str, counter)
 
                 errD_fake = self.d_loss_fake.eval({self.z: batch_z, self.y:batch_labels, self.prev_bar:prev_batch_images })
@@ -209,14 +211,12 @@ class MidiNet(object):
 
                 counter += 1
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
-                    % (epoch, idx, batch_idxs,
-                        time.time() - start_time, errD_fake+errD_real, errG))
+                    % (epoch, idx, batch_idxs, time.time() - start_time, errD_fake+errD_real, errG))
 
                 if np.mod(counter, 100) == 1:
 
                     samples, d_loss, g_loss = self.sess.run(
-                        [self.sampler, self.d_loss, self.g_loss],
-                        feed_dict={self.z: sample_z, self.images: sample_images, self.y:sample_labels, self.prev_bar:prev_batch_images }
+                        [self.sampler, self.d_loss, self.g_loss], feed_dict={self.z: sample_z, self.images: sample_images, self.y:sample_labels, self.prev_bar:prev_batch_images }
                     )
                     #samples = (samples+1.)/2.
                     save_images(samples[:5,:], [1, 5], './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
@@ -230,12 +230,16 @@ class MidiNet(object):
             % (epoch, time.time() - start_time, (errD_fake+errD_real)/batch_idxs))
 
     def discriminator(self, x, y=None, reuse=False):
+        print("Discriminator started ")
         df_dim = 64
         dfc_dim = 1024
+        print ('Yo Rohit~', self.y_dim)
         if reuse:
+            # this could be potential issue for reuse of the variables check  https://github.com/tensorflow/tensorflow/issues/6220
             tf.get_variable_scope().reuse_variables()
 
         if not self.y_dim:
+            print("    y_dim is None. create Hx_conv")
             h0 = lrelu(self.d_bn0(conv2d(x, 64, k_h=4, k_w=89, name='d_h0_conv')))
             h1 = lrelu(self.d_bn1(conv2d(h0, 64, k_h=4, k_w=1, name='d_h1_conv')))
             h2 = lrelu(self.d_bn2(conv2d(h1, 64, k_h=4, k_w=1, name='d_h2_conv')))
@@ -244,6 +248,7 @@ class MidiNet(object):
             return tf.nn.sigmoid(h3), h3
 
         else:
+            print("    y_dim is defined. create Hx_conv")
             yb = tf.reshape(y, [self.batch_size, 1, 1, self.y_dim])
 
             x = conv_cond_concat(x, yb)
@@ -264,7 +269,7 @@ class MidiNet(object):
             return tf.nn.sigmoid(h3), h3, fm
 
     def generator(self, z, y=None, prev_x = None):
-
+        print("Generator Started ")
         h0_prev = lrelu(self.g_prev_bn0(conv2d(prev_x, 16, k_h=1, k_w=128,d_h=1, d_w=2, name='g_h0_prev_conv')))
         h1_prev = lrelu(self.g_prev_bn1(conv2d(h0_prev, 16, k_h=2, k_w=1, name='g_h1_prev_conv')))
         h2_prev = lrelu(self.g_prev_bn2(conv2d(h1_prev, 16, k_h=2, k_w=1, name='g_h2_prev_conv')))
@@ -298,6 +303,7 @@ class MidiNet(object):
         return tf.nn.sigmoid(deconv2d(h4, [self.batch_size, 16, 128, self.c_dim],k_h=1, k_w=128,d_h=1, d_w=2, name='g_h5'))
 
     def sampler(self, z, y=None, prev_x=None):
+        print("Sampler started ")
         tf.get_variable_scope().reuse_variables()
         h0_prev = lrelu(self.g_prev_bn0(conv2d(prev_x, 16, k_h=1, k_w=128, d_h=1, d_w=2,name='g_h0_prev_conv')))
         h1_prev = lrelu(self.g_prev_bn1(conv2d(h0_prev, 16, k_h=2, k_w=1, name='g_h1_prev_conv')))
